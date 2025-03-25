@@ -5,7 +5,9 @@ package webpbin
 
 import (
 	"bytes"
+	"context"
 	"errors"
+	"fmt"
 	"image"
 	"image/png"
 	"io"
@@ -31,7 +33,6 @@ func NewDWebP(optionFuncs ...OptionFunc) *DWebP {
 		BinWrapper: createBinWrapper(optionFuncs...),
 	}
 	bin.ExecPath("dwebp")
-
 	return bin
 }
 
@@ -82,34 +83,56 @@ func (c *DWebP) Version() (string, error) {
 // If no output is specified, returns the decoded image as an image.Image.
 // If an output is specified (file or writer), returns nil, nil.
 func (c *DWebP) Run() (image.Image, error) {
+	return c.RunWithContext(context.Background())
+}
+
+// RunWithContext executes the dwebp command with the specified parameters and context.
+// The context can be used to cancel the operation.
+// Returns the decoded image and any error encountered during the process.
+// If no output is specified, returns the decoded image as an image.Image.
+// If an output is specified (file or writer), returns nil, nil.
+func (c *DWebP) RunWithContext(ctx context.Context) (image.Image, error) {
 	defer c.BinWrapper.Reset()
 
 	output, err := c.getOutput()
-
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get output: %w", err)
 	}
 
 	c.Arg("-o", output)
 
-	err = c.setInput()
-
-	if err != nil {
-		return nil, err
+	if err := c.setInput(); err != nil {
+		return nil, fmt.Errorf("failed to set input: %w", err)
 	}
 
 	if c.output != nil {
 		c.SetStdOut(c.output)
 	}
 
-	err = c.BinWrapper.Run()
+	// Create a channel to handle context cancellation
+	done := make(chan struct{})
+	go func() {
+		<-ctx.Done()
+		c.BinWrapper.Kill()
+		close(done)
+	}()
 
+	err = c.BinWrapper.Run()
 	if err != nil {
-		return nil, errors.New(err.Error() + ". " + string(c.StdErr()))
+		select {
+		case <-done:
+			return nil, fmt.Errorf("operation cancelled: %w", ctx.Err())
+		default:
+			return nil, fmt.Errorf("dwebp command failed: %w. stderr: %s", err, c.StdErr())
+		}
 	}
 
 	if c.output == nil && c.outputFile == "" {
-		return png.Decode(bytes.NewReader(c.BinWrapper.StdOut()))
+		img, err := png.Decode(bytes.NewReader(c.BinWrapper.StdOut()))
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode PNG output: %w", err)
+		}
+		return img, nil
 	}
 
 	return nil, nil
@@ -124,9 +147,8 @@ func (c *DWebP) setInput() error {
 	} else if c.inputFile != "" {
 		c.Arg(c.inputFile)
 	} else {
-		return errors.New("Undefined input")
+		return errors.New("undefined input")
 	}
-
 	return nil
 }
 
@@ -136,6 +158,5 @@ func (c *DWebP) getOutput() (string, error) {
 	if c.outputFile != "" {
 		return c.outputFile, nil
 	}
-
 	return "-", nil
 }

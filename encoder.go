@@ -4,6 +4,7 @@
 package webpbin
 
 import (
+	"context"
 	"image"
 	"io"
 )
@@ -29,11 +30,26 @@ type Encoder struct {
 // Returns:
 //   - error: Any error encountered during encoding
 func (e *Encoder) Encode(w io.Writer, m image.Image) error {
+	return e.EncodeWithContext(context.Background(), w, m)
+}
+
+// EncodeWithContext writes the Image m to w in WebP format with context support.
+// The context can be used to cancel the operation.
+// Any Image type may be encoded.
+//
+// Parameters:
+//   - ctx: The context for cancellation
+//   - w: The io.Writer to write the encoded WebP data
+//   - m: The image.Image to encode
+//
+// Returns:
+//   - error: Any error encountered during encoding
+func (e *Encoder) EncodeWithContext(ctx context.Context, w io.Writer, m image.Image) error {
 	return NewCWebP().
 		Quality(e.Quality).
 		InputImage(m).
 		Output(w).
-		Run()
+		RunWithContext(ctx)
 }
 
 // Encode writes the Image m to w in WebP format using default settings.
@@ -47,6 +63,22 @@ func (e *Encoder) Encode(w io.Writer, m image.Image) error {
 // Returns:
 //   - error: Any error encountered during encoding
 func Encode(w io.Writer, m image.Image) error {
+	return EncodeWithContext(context.Background(), w, m)
+}
+
+// EncodeWithContext writes the Image m to w in WebP format using default settings and context support.
+// The context can be used to cancel the operation.
+// It is a convenience function that creates an Encoder with default quality (75).
+// Any Image type may be encoded.
+//
+// Parameters:
+//   - ctx: The context for cancellation
+//   - w: The io.Writer to write the encoded WebP data
+//   - m: The image.Image to encode
+//
+// Returns:
+//   - error: Any error encountered during encoding
+func EncodeWithContext(ctx context.Context, w io.Writer, m image.Image) error {
 	e := &Encoder{Quality: 75}
-	return e.Encode(w, m)
+	return e.EncodeWithContext(ctx, w, m)
 }

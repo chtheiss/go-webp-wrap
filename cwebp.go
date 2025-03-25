@@ -4,6 +4,7 @@
 package webpbin
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"image"
@@ -43,7 +44,6 @@ func NewCWebP(optionFuncs ...OptionFunc) *CWebP {
 		quality:    -1,
 	}
 	bin.ExecPath("cwebp")
-
 	return bin
 }
 
@@ -111,7 +111,6 @@ func (c *CWebP) Quality(quality uint) *CWebP {
 	if quality > 100 {
 		quality = 100
 	}
-
 	c.quality = int(quality)
 	return c
 }
@@ -133,6 +132,13 @@ func (c *CWebP) Crop(x, y, width, height int) *CWebP {
 // Run executes the cwebp command with the specified parameters.
 // Returns an error if the command fails or if input/output is not properly configured.
 func (c *CWebP) Run() error {
+	return c.RunWithContext(context.Background())
+}
+
+// RunWithContext executes the cwebp command with the specified parameters and context.
+// The context can be used to cancel the operation.
+// Returns an error if the command fails or if input/output is not properly configured.
+func (c *CWebP) RunWithContext(ctx context.Context) error {
 	defer c.BinWrapper.Reset()
 
 	if c.quality > -1 {
@@ -140,31 +146,41 @@ func (c *CWebP) Run() error {
 	}
 
 	if c.crop != nil {
-		c.Arg("-crop", fmt.Sprintf("%d", c.crop.x), fmt.Sprintf("%d", c.crop.y), fmt.Sprintf("%d", c.crop.width), fmt.Sprintf("%d", c.crop.height))
+		c.Arg("-crop", fmt.Sprintf("%d", c.crop.x), fmt.Sprintf("%d", c.crop.y),
+			fmt.Sprintf("%d", c.crop.width), fmt.Sprintf("%d", c.crop.height))
 	}
 
 	output, err := c.getOutput()
-
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get output: %w", err)
 	}
 
 	c.Arg("-o", output)
 
-	err = c.setInput()
-
-	if err != nil {
-		return err
+	if err := c.setInput(); err != nil {
+		return fmt.Errorf("failed to set input: %w", err)
 	}
 
 	if c.output != nil {
 		c.SetStdOut(c.output)
 	}
 
-	err = c.BinWrapper.Run()
+	// Create a channel to handle context cancellation
+	done := make(chan struct{})
+	go func() {
+		<-ctx.Done()
+		c.BinWrapper.Kill()
+		close(done)
+	}()
 
+	err = c.BinWrapper.Run()
 	if err != nil {
-		return errors.New(err.Error() + ". " + string(c.StdErr()))
+		select {
+		case <-done:
+			return fmt.Errorf("operation cancelled: %w", ctx.Err())
+		default:
+			return fmt.Errorf("cwebp command failed: %w. stderr: %s", err, c.StdErr())
+		}
 	}
 
 	return nil
@@ -186,19 +202,16 @@ func (c *CWebP) setInput() error {
 		c.StdIn(c.input)
 	} else if c.inputImage != nil {
 		r, err := createReaderFromImage(c.inputImage)
-
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to create reader from image: %w", err)
 		}
-
 		c.Arg("--").Arg("-")
 		c.StdIn(r)
 	} else if c.inputFile != "" {
 		c.Arg(c.inputFile)
 	} else {
-		return errors.New("Undefined input")
+		return errors.New("undefined input")
 	}
-
 	return nil
 }
 
@@ -210,6 +223,6 @@ func (c *CWebP) getOutput() (string, error) {
 	} else if c.outputFile != "" {
 		return c.outputFile, nil
 	} else {
-		return "", errors.New("Undefined output")
+		return "", errors.New("undefined output")
 	}
 }

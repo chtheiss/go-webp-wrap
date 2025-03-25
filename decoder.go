@@ -4,6 +4,8 @@
 package webpbin
 
 import (
+	"context"
+	"fmt"
 	"image"
 	"io"
 )
@@ -18,5 +20,24 @@ import (
 //   - image.Image: The decoded image
 //   - error: Any error encountered during decoding
 func Decode(r io.Reader) (image.Image, error) {
-	return NewDWebP().Input(r).Run()
+	return DecodeWithContext(context.Background(), r)
+}
+
+// DecodeWithContext reads a WebP image from r and returns it as an image.Image.
+// The context can be used to cancel the operation.
+// It is a convenience function that wraps the DWebP decoder.
+//
+// Parameters:
+//   - ctx: The context for cancellation
+//   - r: The io.Reader containing the WebP image data
+//
+// Returns:
+//   - image.Image: The decoded image
+//   - error: Any error encountered during decoding
+func DecodeWithContext(ctx context.Context, r io.Reader) (image.Image, error) {
+	img, err := NewDWebP().Input(r).RunWithContext(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode WebP image: %w", err)
+	}
+	return img, nil
 }
