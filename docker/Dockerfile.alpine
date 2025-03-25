@@ -1,0 +1,23 @@
+FROM golang:alpine
+RUN apk add --no-cache --update libpng-dev libjpeg-turbo-dev giflib-dev tiff-dev autoconf automake make g++ wget git
+
+WORKDIR /
+
+RUN wget https://storage.googleapis.com/downloads.webmproject.org/releases/webp/libwebp-1.5.0.tar.gz && \
+	tar -xvzf libwebp-1.5.0.tar.gz && \
+	mv libwebp-1.5.0 libwebp && \
+	rm libwebp-1.5.0.tar.gz && \
+    cd /libwebp && \
+	./configure && \
+	make && \
+	make install && \
+	rm -rf libwebp
+
+RUN go get -v github.com/belphemur/go-binwrapper && \
+    go get -v github.com/stretchr/testify/assert && \
+    go get -v golang.org/x/image/webp
+
+RUN mkdir -p $GOPATH/src/github.com/chtheiss/go-webp-wrap
+COPY . $GOPATH/src/github.com/chtheiss/go-webp-wrap
+WORKDIR $GOPATH/src/github.com/chtheiss/go-webp-wrap
+RUN go test -v ./...
