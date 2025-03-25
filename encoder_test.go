@@ -1,11 +1,12 @@
-package webpbin
+package webpwrap
 
 import (
-	"testing"
+	"bytes"
 	"image/jpeg"
 	"os"
+	"testing"
+
 	"github.com/stretchr/testify/assert"
-	"bytes"
 	"golang.org/x/image/webp"
 )
 

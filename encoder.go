@@ -1,7 +1,7 @@
-// Package webpbin provides a Go wrapper for the WebP image compression tools.
+// package webpwrap provides a Go wrapper for the WebP image compression tools.
 // It allows for easy conversion of images to WebP format with various options
 // including quality control, cropping, and different input/output methods.
-package webpbin
+package webpwrap
 
 import (
 	"context"

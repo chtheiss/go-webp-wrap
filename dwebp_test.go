@@ -1,4 +1,4 @@
-package webpbin
+package webpwrap
 
 import (
 	"image/png"
