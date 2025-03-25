@@ -46,7 +46,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	if err := webpbin.Encode(f, img); err != nil {
+	if err := webpwrap.Encode(f, img); err != nil {
 		f.Close()
 		log.Fatal(err)
 	}
@@ -64,7 +64,7 @@ CWebP is a wrapper for *cwebp* command line tool.
 Example to convert image.png to image.webp:
 
 ```go
-err := webpbin.NewCWebP().
+err := webpwrap.NewCWebP().
 		Quality(80).
 		InputFile("image.png").
 		OutputFile("image.webp").
@@ -78,7 +78,7 @@ DWebP is a wrapper for *dwebp* command line tool.
 Example to convert image.webp to image.png:
 
 ```go
-err := webpbin.NewDWebP().
+err := webpwrap.NewDWebP().
 		InputFile("image.webp").
 		OutputFile("image.png").
 		Run()
